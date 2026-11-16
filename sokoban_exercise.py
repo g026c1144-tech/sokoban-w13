@@ -122,14 +122,12 @@ def can_enter(board, destination):
 
 
 def push_crate(board, crate_position, vector):
-    """TODO 3：箱を押す。引数：board, 箱座標, 移動方向。戻り値：押せたらTrue。
-
-    箱の一つ先に別の箱や壁がある場合は押せない。
-    押せる場合は箱の集合を変更する。押せないときは変更しない。
-    デモ版の辞書キー boxes と、演習版の crates は異なる。
-    """
-    # TODO 3: 箱の行き先を調べ、移動可能なら crates を更新する
-    return False
+    crate_dest = next_position(crate_position, vector)
+    if not can_enter(board, crate_dest) or crate_dest in board["crates"]:
+        return False
+    board["crates"].remove(crate_position)
+    board["crates"].add(crate_dest)
+    return True
 
 
 def apply_move(board, direction_key):
@@ -140,6 +138,10 @@ def apply_move(board, direction_key):
 
     if not can_enter(board, next_pos):
         return False
+
+    if next_pos in board["crates"]:
+        if not push_crate(board, next_pos, vector):
+            return False
 
     board["past"].append((board["hero"], board["crates"].copy()))
     board["hero"] = next_pos
