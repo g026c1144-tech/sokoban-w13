@@ -115,6 +115,19 @@ def undo(game):
 def is_cleared(game):
     return game["boxes"] == game["goals"]
 
+def is_deadlocked(game):
+    """角に詰まった箱（ゴール以外）があればTrueを返す。"""
+    for (x, y) in game["boxes"]:
+        if (x, y) in game["goals"]:
+            continue
+        up = (x, y - 1) in game["walls"]
+        down = (x, y + 1) in game["walls"]
+        left = (x - 1, y) in game["walls"]
+        right = (x + 1, y) in game["walls"]
+        if (up or down) and (left or right):
+            return True
+    return False
+
 
 def main():
     level_index = 0
@@ -130,6 +143,8 @@ def main():
             input("Enterを押して次へ...")
             game = load_level(LEVELS[level_index])
             continue
+        if is_deadlocked(game):
+            print("⚠ 箱が角に詰まりました！ U で戻すか R でリスタートしてください。")
         key = input("操作 > ").strip().lower()[:1]
         if key == "q":
             break
