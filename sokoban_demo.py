@@ -82,7 +82,8 @@ def draw_game(game):
         print(line)
     # ★機能2：押した回数も表示
     print(f"移動回数: {game['moves']} | 押した回数: {game['pushes']}")
-    print("WASD: 移動 / U: 一手戻す / R: リスタート / Q: 終了")
+    # ★機能3：M キーの説明を追加
+    print("WASD: 移動 / U: 一手戻す / R: リスタート / M: ステージ選択 / Q: 終了")
 
 
 def inside(game, pos):
@@ -157,27 +158,46 @@ def save_records(records):
         json.dump(records, f)
 
 
+# ★機能3：ステージ選択メニュー
+def select_level(records):
+    """ステージ一覧とベスト記録を表示し、選ばれたステージ番号(0始まり)を返す。
+    Q が入力されたら None を返す（ゲーム終了）。"""
+    print("\n=== ステージ選択 ===")
+    for i in range(len(LEVELS)):
+        print(f"{i + 1}: ステージ{i + 1}  (ベスト記録: {records.get(str(i), 'なし')})")
+    print("Q: 終了")
+    while True:
+        choice = input(f"ステージ番号を入力 (1-{len(LEVELS)}) > ").strip().lower()
+        if choice == "q":
+            return None
+        if choice.isdigit() and 1 <= int(choice) <= len(LEVELS):
+            return int(choice) - 1
+        print("正しい番号を入力してください。")
+
+
 def main():
     records = load_records()  # ★機能2
-    level_index = 0
+    level_index = select_level(records)  # ★機能3：最初にステージを選ぶ
+    if level_index is None:
+        return
     game = load_level(LEVELS[level_index])
     while True:
         draw_game(game)
         # ★機能2：このステージのベスト記録を表示
         print(f"ベスト記録: {records.get(str(level_index), 'なし')}")
         if is_cleared(game):
-            print("クリア！ 次のステージへ進みます。")
+            print("クリア！")
             # ★機能2：記録を更新したら保存
             best = records.get(str(level_index))
             if best is None or game["moves"] < best:
                 records[str(level_index)] = game["moves"]
                 save_records(records)
                 print(f"★ 新記録！ {game['moves']} 手")
-            level_index += 1
-            if level_index == len(LEVELS):
-                print("全ステージクリア！")
+            # ★機能3：クリア後はステージ選択メニューに戻る
+            input("Enterを押してステージ選択へ...")
+            level_index = select_level(records)
+            if level_index is None:
                 break
-            input("Enterを押して次へ...")
             game = load_level(LEVELS[level_index])
             continue
         # ★機能1：箱が角に詰まったら警告
@@ -188,10 +208,16 @@ def main():
             break
         if key == "r":
             game = load_level(LEVELS[level_index])
+        elif key == "m":  # ★機能3：メニューに戻る
+            level_index = select_level(records)
+            if level_index is None:
+                break
+            game = load_level(LEVELS[level_index])
         elif key == "u":
             undo(game)
         else:
             move_player(game, key)
+    print("ゲームを終了します。")
 
 
 if __name__ == "__main__":
