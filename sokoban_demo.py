@@ -1,3 +1,6 @@
+import json  # ★機能2：記録をファイルに保存するため
+
+RECORD_FILE = "best_records.json"  # ★機能2：ベスト記録の保存先
 
 LEVELS = [
     [
@@ -55,7 +58,8 @@ def load_level(rows):
     if player is None or not boxes or len(boxes) != len(goals):
         raise ValueError("プレイヤー1人、箱とゴールは同じ数が必要です")
     return {"walls": walls, "goals": goals, "boxes": boxes, "player": player,
-            "width": width, "height": len(rows), "moves": 0, "history": []}
+            "width": width, "height": len(rows), "moves": 0, "history": [],
+            "pushes": 0}  # ★機能2：箱を押した回数
 
 
 def draw_game(game):
@@ -76,7 +80,9 @@ def draw_game(game):
             else:
                 line += " "
         print(line)
-    print(f"移動回数: {game['moves']} | WASD: 移動 / U: 一手戻す / R: リスタート / Q: 終了")
+    # ★機能2：押した回数も表示
+    print(f"移動回数: {game['moves']} | 押した回数: {game['pushes']}")
+    print("WASD: 移動 / U: 一手戻す / R: リスタート / Q: 終了")
 
 
 def inside(game, pos):
@@ -97,10 +103,12 @@ def move_player(game, key):
         if (not inside(game, pushed_to) or pushed_to in game["walls"]
                 or pushed_to in game["boxes"]):
             return False
-    game["history"].append((game["player"], game["boxes"].copy()))
+    # ★機能2：Undoで戻せるよう、押した回数も履歴に保存
+    game["history"].append((game["player"], game["boxes"].copy(), game["pushes"]))
     if pushed_to is not None:
         game["boxes"].remove(target)
         game["boxes"].add(pushed_to)
+        game["pushes"] += 1  # ★機能2
     game["player"] = target
     game["moves"] += 1
     return True
@@ -108,18 +116,21 @@ def move_player(game, key):
 
 def undo(game):
     if game["history"]:
-        game["player"], game["boxes"] = game["history"].pop()
+        # ★機能2：押した回数も元に戻す
+        game["player"], game["boxes"], game["pushes"] = game["history"].pop()
         game["moves"] -= 1
 
 
 def is_cleared(game):
     return game["boxes"] == game["goals"]
 
+
+# ★機能1：デッドロック検出
 def is_deadlocked(game):
     """角に詰まった箱（ゴール以外）があればTrueを返す。"""
     for (x, y) in game["boxes"]:
         if (x, y) in game["goals"]:
-            continue
+            continue  # ゴール上の箱は問題なし
         up = (x, y - 1) in game["walls"]
         down = (x, y + 1) in game["walls"]
         left = (x - 1, y) in game["walls"]
@@ -129,13 +140,39 @@ def is_deadlocked(game):
     return False
 
 
+# ★機能2：ベスト記録の読み込み
+def load_records():
+    """ファイルからベスト記録を読む。ファイルがなければ空の辞書を返す。"""
+    try:
+        with open(RECORD_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+# ★機能2：ベスト記録の保存
+def save_records(records):
+    """ベスト記録をファイルに書き込む。"""
+    with open(RECORD_FILE, "w", encoding="utf-8") as f:
+        json.dump(records, f)
+
+
 def main():
+    records = load_records()  # ★機能2
     level_index = 0
     game = load_level(LEVELS[level_index])
     while True:
         draw_game(game)
+        # ★機能2：このステージのベスト記録を表示
+        print(f"ベスト記録: {records.get(str(level_index), 'なし')}")
         if is_cleared(game):
             print("クリア！ 次のステージへ進みます。")
+            # ★機能2：記録を更新したら保存
+            best = records.get(str(level_index))
+            if best is None or game["moves"] < best:
+                records[str(level_index)] = game["moves"]
+                save_records(records)
+                print(f"★ 新記録！ {game['moves']} 手")
             level_index += 1
             if level_index == len(LEVELS):
                 print("全ステージクリア！")
@@ -143,6 +180,7 @@ def main():
             input("Enterを押して次へ...")
             game = load_level(LEVELS[level_index])
             continue
+        # ★機能1：箱が角に詰まったら警告
         if is_deadlocked(game):
             print("⚠ 箱が角に詰まりました！ U で戻すか R でリスタートしてください。")
         key = input("操作 > ").strip().lower()[:1]
